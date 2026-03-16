@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JD Gallery - Globe Telecom</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .jd-list {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .jd-list-header {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .jd-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .jd-item:last-child {
+            border-bottom: none;
+        }
+
+        .jd-item:hover {
+            background: #f8f9fa;
+            padding-left: 25px;
+        }
+
+        .jd-item.active {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding-left: 16px;
+        }
+
+        .jd-item-title {
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+
+        .jd-item-meta {
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        .jd-item-location {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+            font-size: 0.8em;
+            color: #868e96;
+        }
+
+        .jd-item-location::before {
+            content: "📍";
+            margin-right: 5px;
+        }
+
+        .jd-detail {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            padding: 40px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .jd-detail-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            color: #adb5bd;
+            font-size: 1.1em;
+        }
+
+        .jd-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .jd-header h2 {
+            font-size: 1.8em;
+            color: #212529;
+            margin-bottom: 10px;
+        }
+
+        .jd-header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .jd-meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .jd-meta-label {
+            font-size: 0.8em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+        }
+
+        .jd-meta-value {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .jd-content {
+            font-size: 0.95em;
+            color: #495057;
+            line-height: 1.8;
+        }
+
+        .jd-content h2 {
+            font-size: 1.3em;
+            color: #212529;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+            padding-left: 12px;
+        }
+
+        .jd-content h3 {
+            font-size: 1.1em;
+            color: #495057;
+            margin-top: 18px;
+            margin-bottom: 10px;
+        }
+
+        .jd-content ul, .jd-content ol {
+            margin-left: 20px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        .jd-content li {
+            margin-bottom: 8px;
+        }
+
+        .jd-content strong {
+            color: #212529;
+            font-weight: 600;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #e7f3ff;
+            color: #0c5aa0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-right: 8px;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #adb5bd;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            opacity: 0.8;
+            font-size: 0.9em;
+            margin-top: 40px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 JD Gallery</h1>
+            <p>Generated Job Descriptions - Globe Telecom</p>
+        </div>
+
+        <div class="content">
+            <div class="jd-list">
+                <div class="jd-list-header">Generated JDs</div>
+                <div id="jd-list-container">
+                    <div class="jd-item" style="text-align: center; color: #999; padding: 30px 20px;">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+
+            <div class="jd-detail">
+                <div id="jd-detail-container" class="jd-detail-empty">
+                    Select a JD from the list
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Built with ❤️ for Globe Telecom | Powered by Google Cloud & Gemini</p>
+        </div>
+    </div>
+
+    <script>
+        let allJDs = [];
+        let currentJDId = null;
+
+        async function loadJDList() {
+            try {
+                const response = await fetch('/api/jds');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                allJDs = await response.json();
+                renderJDList();
+            } catch (error) {
+                console.error('Failed to load JD list:', error);
+                document.getElementById('jd-list-container').innerHTML = `
+                    <div class="error-message" style="margin: 15px;">
+                        Failed to load JDs: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function renderJDList() {
+            const container = document.getElementById('jd-list-container');
+            
+            if (allJDs.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; color: #999; text-align: center;">No JDs yet</div>';
+                return;
+            }
+
+            container.innerHTML = allJDs.map(jd => `
+                <div class="jd-item ${jd.jd_id === currentJDId ? 'active' : ''}" onclick="selectJD('${jd.jd_id}')">
+                    <div class="jd-item-title">${escapeHtml(jd.role_title)}</div>
+                    <div class="jd-item-meta">${escapeHtml(jd.business_unit)}</div>
+                    <div class="jd-item-location">${escapeHtml(jd.location)}</div>
+                </div>
+            `).join('');
+        }
+
+        async function selectJD(jdId) {
+            currentJDId = jdId;
+            renderJDList();
+            await loadJDDetail(jdId);
+        }
+
+        async function loadJDDetail(jdId) {
+            const container = document.getElementById('jd-detail-container');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const response = await fetch(`/api/jds/${jdId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const jd = await response.json();
+                renderJDDetail(jd);
+            } catch (error) {
+                console.error('Failed to load JD detail:', error);
+                container.innerHTML = `<div class="error-message">Failed to load JD: ${error.message}</div>`;
+            }
+        }
+
+        function renderJDDetail(jd) {
+            const container = document.getElementById('jd-detail-container');
+            const tagsHtml = jd.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+            
+            const createdDate = new Date(jd.created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const contentHtml = marked.parse(jd.content);
+
+            container.innerHTML = `
+                <div class="jd-header">
+                    <h2>${escapeHtml(jd.role_title)}</h2>
+                    <div class="jd-header-meta">
+                        <div class="jd-meta-item">
+                            <div class="jd-meta-label">Business Unit</div>
+                            <div class="jd-meta-value">${escapeHtml(jd.business_unit)}</div>
+                        </div>
+                        <div class="jd-meta-item">
+                            <div class="jd-meta-label">Location</div>
+                            <div class="jd-meta-value">${escapeHtml(jd.location)}</div>
+                        </div>
+                        <div class="jd-meta-item">
+                            <div class="jd-meta-label">Created</div>
+                            <div class="jd-meta-value">${createdDate}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        ${tagsHtml}
+                    </div>
+                </div>
+                <div class="jd-content">${contentHtml}</div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Load JDs on page load
+        loadJDList();
+    </script>
+</body>
+</html>
