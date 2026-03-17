@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Powered JD & Hiring Assistant — Demo Deck</title>
+<style>
+  /* ── Base ────────────────────────────────────────────────── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #0b1120; }
+
+  /* ── Slide container ──────────────────────────────────────── */
+  .deck { width: 100vw; height: 100vh; position: relative; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 56px 80px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .45s ease;
+  }
+  .slide.active { opacity: 1; pointer-events: auto; }
+
+  /* ── Navigation ───────────────────────────────────────────── */
+  .nav {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px; z-index: 99;
+  }
+  .nav button {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22);
+    color: #fff; padding: 8px 22px; border-radius: 24px; cursor: pointer; font-size: 14px;
+    transition: background .2s;
+  }
+  .nav button:hover { background: rgba(255,255,255,.24); }
+  .nav button:disabled { opacity: .3; cursor: default; }
+  .dots { display: flex; gap: 8px; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,.28); cursor: pointer; transition: background .2s;
+  }
+  .dot.on { background: #60a5fa; }
+
+  /* Slide number */
+  .slide-num {
+    position: fixed; top: 22px; right: 32px; color: rgba(255,255,255,.35);
+    font-size: 13px; z-index: 99;
+  }
+
+  /* ── Typography helpers ───────────────────────────────────── */
+  .label { font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 12px; }
+  h1 { font-size: 52px; font-weight: 700; line-height: 1.15; }
+  h2 { font-size: 36px; font-weight: 700; line-height: 1.2; }
+  p.sub { font-size: 18px; line-height: 1.6; max-width: 680px; }
+  .accent { color: #60a5fa; }
+  .muted { color: rgba(255,255,255,.55); }
+
+  /* ── SLIDE 1 · Cover ──────────────────────────────────────── */
+  #s1 { background: linear-gradient(135deg, #0b1120 0%, #0f2040 60%, #132d60 100%); text-align: center; }
+  #s1 .logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+  #s1 .brand-logo { width: 48px; height: 48px; }
+  #s1 .logo-badge {
+    background: #2563eb; color: #fff; font-weight: 700; font-size: 13px;
+    padding: 5px 14px; border-radius: 6px; letter-spacing: 1px;
+  }
+  #s1 .divider { width: 1px; height: 28px; background: rgba(255,255,255,.25); }
+  #s1 .tagline { color: rgba(255,255,255,.55); font-size: 14px; }
+  #s1 h1 { font-size: 56px; color: #fff; margin-bottom: 20px; }
+  #s1 h1 span { color: #60a5fa; }
+  #s1 .sub { color: rgba(255,255,255,.65); margin: 0 auto 40px; }
+  #s1 .pills { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  #s1 .pill {
+    background: rgba(96,165,250,.15); border: 1px solid rgba(96,165,250,.35);
+    color: #93c5fd; padding: 6px 18px; border-radius: 20px; font-size: 13px;
+  }
+
+  /* ── SLIDE 2 · Problem ───────────────────────────────────── */
+  #s2 { background: linear-gradient(135deg, #0e1628 0%, #111827 100%); }
+  #s2 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%; max-width: 900px; }
+  .card {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px; padding: 28px 32px;
+  }
+  .card .icon { font-size: 32px; margin-bottom: 14px; }
+  .card h3 { color: #fff; font-size: 18px; margin-bottom: 10px; }
+  .card p { color: rgba(255,255,255,.55); font-size: 14px; line-height: 1.7; }
+  .card ul { color: rgba(255,255,255,.55); font-size: 14px; line-height: 2; padding-left: 18px; }
+
+  /* ── SLIDE 3 · How It Works ──────────────────────────────── */
+  #s3 { background: linear-gradient(135deg, #0b1422 0%, #101c36 100%); }
+  #s3 .flow { display: flex; align-items: center; gap: 0; margin-top: 36px; width: 100%; max-width: 920px; }
+  .flow-step {
+    flex: 1; text-align: center;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px; padding: 28px 16px;
+  }
+  .flow-step .num {
+    width: 36px; height: 36px; border-radius: 50%; background: #2563eb;
+    color: #fff; font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+  }
+  .flow-step h4 { color: #fff; font-size: 15px; margin-bottom: 8px; }
+  .flow-step p { color: rgba(255,255,255,.5); font-size: 13px; line-height: 1.6; }
+  .flow-step .file-tag { margin-top: 12px; font-size: 11px; color: #60a5fa; font-family: monospace; }
+  .flow-arrow {
+    flex-shrink: 0; width: 36px; text-align: center;
+    color: rgba(96,165,250,.5); font-size: 22px;
+  }
+  #s3 .cloud-badge {
+    margin-top: 32px; background: rgba(37,99,235,.18); border: 1px solid rgba(37,99,235,.35);
+    border-radius: 12px; padding: 16px 28px; display: flex; gap: 32px; align-items: center;
+  }
+  #s3 .cloud-badge .cb-item { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #93c5fd; }
+  #s3 .cloud-badge .cb-dot { width: 8px; height: 8px; border-radius: 50%; background: #60a5fa; }
+
+  /* ── SLIDE 4 · Three Views ───────────────────────────────── */
+  #s4 { background: linear-gradient(135deg, #0d1525 0%, #0f1f3d 100%); }
+  #s4 .three-col { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; width: 100%; max-width: 940px; margin-top: 32px; }
+  .view-card {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 16px; padding: 28px 22px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .view-card .vc-tag {
+    display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 4px; width: fit-content;
+  }
+  .vc-blue { background: rgba(37,99,235,.3); color: #93c5fd; }
+  .vc-green { background: rgba(22,163,74,.3); color: #86efac; }
+  .vc-purple { background: rgba(124,58,237,.3); color: #c4b5fd; }
+  .view-card h4 { color: #fff; font-size: 17px; }
+  .view-card ul { color: rgba(255,255,255,.55); font-size: 13.5px; line-height: 2; padding-left: 18px; }
+  .view-card .url { font-family: monospace; font-size: 12px; color: rgba(96,165,250,.7); margin-top: auto; text-decoration: none; display: block; }
+  .view-card .url:hover { color: #60a5fa; text-decoration: underline; }
+
+  /* ── SLIDE 5 · Why Google Cloud ──────────────────────────── */
+  #s5 { background: linear-gradient(135deg, #070e1e 0%, #0c1830 100%); }
+  #s5 .benefit-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; width: 100%; max-width: 860px; margin-top: 32px; }
+  .benefit-card {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+    border-left: 3px solid #2563eb; border-radius: 12px; padding: 22px 26px;
+  }
+  .benefit-card h4 { color: #fff; font-size: 16px; margin-bottom: 8px; }
+  .benefit-card p { color: rgba(255,255,255,.5); font-size: 13.5px; line-height: 1.65; }
+  #s5 .bottom-bar {
+    margin-top: 32px; width: 100%; max-width: 860px;
+    background: rgba(37,99,235,.14); border: 1px solid rgba(37,99,235,.3);
+    border-radius: 12px; padding: 18px 28px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  #s5 .bottom-bar p { color: #93c5fd; font-size: 14px; line-height: 1.6; }
+  #s5 .bottom-bar .icon { font-size: 24px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- ─── Slide 1 · Cover ──────────────────────────────────── -->
+  <section class="slide active" id="s1">
+    <div class="logo-row">
+      <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="29" fill="none" stroke="#ffffff" stroke-width="4"/>
+        <circle cx="18" cy="16" r="4" fill="#ffffff"/>
+        <circle cx="47" cy="16" r="4" fill="#ffffff"/>
+        <circle cx="12" cy="31" r="4" fill="#ffffff"/>
+        <circle cx="52" cy="31" r="4" fill="#ffffff"/>
+        <circle cx="18" cy="48" r="4" fill="#ffffff"/>
+        <circle cx="47" cy="48" r="4" fill="#ffffff"/>
+        <path d="M23 24c4-6 12-6 16 0 2 3 1 8-3 10l-2 1v8h-4v-6l-3 1c-5 2-9-2-9-7 0-3 2-6 5-7z" fill="#ffffff"/>
+      </svg>
+      <span class="logo-badge">GLOBE TELECOM</span>
+      <span class="divider"></span>
+      <span class="tagline">Internal Innovation Demo</span>
+    </div>
+    <h1>AI-Powered<br><span>JD &amp; Hiring</span> Assistant</h1>
+    <p class="sub" style="margin-top:18px;">From plain language to a published JD — and from resume upload to ranked candidate list — in one seamless, cloud-native workflow.</p>
+    <div class="pills" style="margin-top:36px;">
+      <span class="pill">Gemini on Vertex AI</span>
+      <span class="pill">Google Cloud Storage</span>
+      <span class="pill">FastAPI Backend</span>
+      <span class="pill">Zero Manual Data Entry</span>
+    </div>
+  </section>
+
+  <!-- ─── Slide 2 · Problem →  Solution ────────────────────── -->
+  <section class="slide" id="s2">
+    <div style="width:100%;max-width:900px;">
+      <div class="label accent">The Challenge</div>
+      <h2 style="color:#fff;margin-bottom:32px;">Hiring today is manual, slow, and inconsistent</h2>
+      <div class="two-col">
+        <div class="card">
+          <div class="icon">📋</div>
+          <h3>Without This System</h3>
+          <ul>
+            <li>JD drafting takes hours of back-and-forth</li>
+            <li>Style and standards vary by drafter</li>
+            <li>Resumes pile up in email with no ranking</li>
+            <li>Recruiters manually match skills one by one</li>
+            <li>No single view across all open roles</li>
+          </ul>
+        </div>
+        <div class="card" style="border-color:rgba(96,165,250,.3);">
+          <div class="icon">✅</div>
+          <h3 class="accent">With This System</h3>
+          <ul style="color:rgba(255,255,255,.75);">
+            <li>JD ready in seconds from natural language</li>
+            <li>Consistent style via company templates</li>
+            <li>Resumes auto-parsed and ranked by fit</li>
+            <li>AI highlights strengths per candidate</li>
+            <li>One dashboard for every open role</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Slide 3 · How It Works ───────────────────────────── -->
+  <section class="slide" id="s3">
+    <div style="width:100%;max-width:920px;">
+      <div class="label accent">End-to-End Flow</div>
+      <h2 style="color:#fff;margin-bottom:8px;">How it works in 4 steps</h2>
+      <p class="muted" style="font-size:14px;margin-bottom:0;">Each step maps to a concrete file; every AI call goes through Google Cloud.</p>
+      <div class="flow" style="margin-top:28px;">
+        <div class="flow-step">
+          <div class="num">1</div>
+          <h4>Generate JD</h4>
+          <p>Hiring manager chats in plain language. Gemini drafts a structured, on-brand JD.</p>
+          <div class="file-tag">chat_agent.py · jd_agent.py</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="num">2</div>
+          <h4>Publish to Gallery</h4>
+          <p>JD is saved to GCS and appears instantly on the public job gallery page.</p>
+          <div class="file-tag">jd_store.py · gallery.html</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="num">3</div>
+          <h4>Candidates Apply</h4>
+          <p>Candidates upload resumes. System parses and deduplicates submissions automatically.</p>
+          <div class="file-tag">resume_parser.py · application_store.py</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="num">4</div>
+          <h4>Recruiter Reviews</h4>
+          <p>Candidates ranked by match score. AI-generated strengths summary per applicant.</p>
+          <div class="file-tag">main.py · recruiter.html</div>
+        </div>
+      </div>
+      <div class="cloud-badge">
+        <div class="cb-item"><div class="cb-dot"></div>Vertex AI (Gemini) — JD generation engine</div>
+        <div class="cb-item"><div class="cb-dot"></div>Cloud Storage — JD &amp; resume persistence</div>
+        <div class="cb-item"><div class="cb-dot"></div>FastAPI — orchestration layer</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Slide 4 · Three Views (Demo) ─────────────────────── -->
+  <section class="slide" id="s4">
+    <div style="width:100%;max-width:940px;">
+      <div class="label accent">Live Demo</div>
+      <h2 style="color:#fff;">Three views, one unified system</h2>
+      <div class="three-col">
+
+        <div class="view-card">
+          <span class="vc-tag vc-blue">Hiring Manager</span>
+          <h4>Chat &amp; Generate</h4>
+          <ul>
+            <li>Describe the role in plain text</li>
+            <li>Gemini returns a structured JD</li>
+            <li>Grounded by company reference docs</li>
+            <li>Edit and re-generate in chat</li>
+          </ul>
+          <a class="url" href="http://127.0.0.1:8080/" target="_blank">→ http://127.0.0.1:8080/</a>
+        </div>
+
+        <div class="view-card">
+          <span class="vc-tag vc-green">Candidate</span>
+          <h4>Browse &amp; Apply</h4>
+          <ul>
+            <li>Public JD gallery, all open roles</li>
+            <li>One-click apply with resume upload</li>
+            <li>Duplicate detection prevents re-submission</li>
+            <li>Instant confirmation on success</li>
+          </ul>
+          <a class="url" href="http://127.0.0.1:8080/gallery" target="_blank">→ http://127.0.0.1:8080/gallery</a>
+        </div>
+
+        <div class="view-card">
+          <span class="vc-tag vc-purple">Recruiter</span>
+          <h4>Review &amp; Rank</h4>
+          <ul>
+            <li>All applicants for each JD in one place</li>
+            <li>Match score (0–100) per candidate</li>
+            <li>AI strengths summary per resume</li>
+            <li>One-click resume download</li>
+          </ul>
+          <a class="url" href="http://127.0.0.1:8080/recruiter" target="_blank">→ http://127.0.0.1:8080/recruiter</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Slide 5 · Why Google Cloud AI ────────────────────── -->
+  <section class="slide" id="s5">
+    <div style="width:100%;max-width:860px;">
+      <div class="label accent">Google Cloud AI</div>
+      <h2 style="color:#fff;margin-bottom:6px;">Why this only works with <span class="accent">Vertex AI + GCS</span></h2>
+      <p class="muted" style="font-size:14px;margin-bottom:0;">Remove Google Cloud AI and the system becomes a static form. Here is what it actually provides:</p>
+      <div class="benefit-grid">
+        <div class="benefit-card">
+          <h4>🧠 Language Intelligence</h4>
+          <p>Gemini turns rough bullet points into polished, role-specific JD prose that matches Globe's hiring standards — no template library can replicate this.</p>
+        </div>
+        <div class="benefit-card">
+          <h4>📂 Reference Grounding</h4>
+          <p>Reference documents stored in GCS are injected into every prompt, keeping JD tone, terminology, and structure on-brand automatically.</p>
+        </div>
+        <div class="benefit-card">
+          <h4>⚡ Speed &amp; Iteration</h4>
+          <p>Multi-turn chat lets hiring managers refine a JD in real time. What used to take half a day now takes under 5 minutes.</p>
+        </div>
+        <div class="benefit-card">
+          <h4>🏢 Enterprise Deployment Path</h4>
+          <p>Vertex AI integrates with GCP IAM, VPC controls, and regional data residency — making the demo production-ready with minimal changes.</p>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <div class="icon">💡</div>
+        <p><strong style="color:#fff;">Key takeaway:</strong> Google Cloud AI is the core differentiator — it provides context-aware language generation that is grounded in company data, fast to iterate, and built for enterprise scale.</p>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<div class="nav">
+  <button id="btn-prev" disabled>← Prev</button>
+  <div class="dots" id="dot-row"></div>
+  <button id="btn-next">Next →</button>
+</div>
+<div class="slide-num" id="slide-num"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let cur = 0;
+
+  const dotRow = document.getElementById('dot-row');
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' on' : '');
+    d.addEventListener('click', () => goTo(i));
+    dotRow.appendChild(d);
+  }
+
+  function goTo(n) {
+    slides[cur].classList.remove('active');
+    dotRow.children[cur].classList.remove('on');
+    cur = Math.max(0, Math.min(n, total - 1));
+    slides[cur].classList.add('active');
+    dotRow.children[cur].classList.add('on');
+    document.getElementById('btn-prev').disabled = cur === 0;
+    document.getElementById('btn-next').disabled = cur === total - 1;
+    document.getElementById('slide-num').textContent = (cur + 1) + ' / ' + total;
+  }
+
+  document.getElementById('btn-prev').addEventListener('click', () => goTo(cur - 1));
+  document.getElementById('btn-next').addEventListener('click', () => goTo(cur + 1));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') goTo(cur + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goTo(cur - 1);
+  });
+
+  goTo(0);
+</script>
+</body>
+</html>

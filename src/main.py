@@ -548,25 +548,46 @@ async def apply_to_jd(
 
 @app.get("/api/jds/{jd_id}/applications", response_model=list[ApplicationListItem])
 def list_applications_for_jd(jd_id: str) -> list[ApplicationListItem]:
-    jds = jd_store.list_jds()
-    if not any(jd.jd_id == jd_id for jd in jds):
+    try:
+        jds = jd_store.list_jds()
+    except Exception:
+        jds = []
+
+    if jds and not any(jd.jd_id == jd_id for jd in jds):
         raise HTTPException(status_code=404, detail=f"JD {jd_id} not found")
 
-    records = application_store.list_applications(jd_id)
-    jd_content = jd_store.get_jd(jd_id) or ""
+    try:
+        records = application_store.list_applications(jd_id)
+    except Exception:
+        return []
+
+    try:
+        jd_content = jd_store.get_jd(jd_id) or ""
+    except Exception:
+        jd_content = ""
+
     metadata = next((jd for jd in jds if jd.jd_id == jd_id), None)
-    role_title = metadata.role_title
+    role_title = metadata.role_title if metadata else ""
     enriched = []
     for record in records:
-        (
-            applicant_name,
-            applicant_email,
-            applicant_phone,
-            current_title,
-            years_experience,
-            skills,
-            profile_summary,
-        ) = _resolve_application_profile(record)
+        try:
+            (
+                applicant_name,
+                applicant_email,
+                applicant_phone,
+                current_title,
+                years_experience,
+                skills,
+                profile_summary,
+            ) = _resolve_application_profile(record)
+        except Exception:
+            applicant_name = _clean_display_text(record.applicant_name)
+            applicant_email = _clean_display_text(record.applicant_email)
+            applicant_phone = _clean_display_text(record.applicant_phone)
+            current_title = _clean_display_text(record.current_title)
+            years_experience = _clean_display_text(record.years_experience)
+            skills = list(record.skills or [])
+            profile_summary = _clean_display_text(record.profile_summary)
 
         match_score, matched_skills, strengths_summary = _calculate_match(
             jd_content=jd_content,
@@ -603,25 +624,43 @@ def list_applications_for_jd(jd_id: str) -> list[ApplicationListItem]:
 
 @app.get("/api/applications", response_model=list[ApplicationListItem])
 def list_all_applications() -> list[ApplicationListItem]:
-    records = application_store.list_applications()
-    jd_metadata = {jd.jd_id: jd for jd in jd_store.list_jds()}
+    try:
+        records = application_store.list_applications()
+    except Exception:
+        return []
+    try:
+        jd_metadata = {jd.jd_id: jd for jd in jd_store.list_jds()}
+    except Exception:
+        jd_metadata = {}
     jd_content_cache: dict[str, str] = {}
 
     items: list[ApplicationListItem] = []
     for record in records:
-        (
-            applicant_name,
-            applicant_email,
-            applicant_phone,
-            current_title,
-            years_experience,
-            skills,
-            profile_summary,
-        ) = _resolve_application_profile(record)
+        try:
+            (
+                applicant_name,
+                applicant_email,
+                applicant_phone,
+                current_title,
+                years_experience,
+                skills,
+                profile_summary,
+            ) = _resolve_application_profile(record)
+        except Exception:
+            applicant_name = _clean_display_text(record.applicant_name)
+            applicant_email = _clean_display_text(record.applicant_email)
+            applicant_phone = _clean_display_text(record.applicant_phone)
+            current_title = _clean_display_text(record.current_title)
+            years_experience = _clean_display_text(record.years_experience)
+            skills = list(record.skills or [])
+            profile_summary = _clean_display_text(record.profile_summary)
 
         jd_content = jd_content_cache.get(record.jd_id)
         if jd_content is None:
-            jd_content = jd_store.get_jd(record.jd_id) or ""
+            try:
+                jd_content = jd_store.get_jd(record.jd_id) or ""
+            except Exception:
+                jd_content = ""
             jd_content_cache[record.jd_id] = jd_content
 
         role_title = jd_metadata.get(record.jd_id).role_title if jd_metadata.get(record.jd_id) else ""

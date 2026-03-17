@@ -29,6 +29,56 @@ Browser (Chat / Gallery / Recruiter)
   -> Google Cloud Services (Vertex AI + Cloud Storage)
 ```
 
+### Visual Flow (Read This First)
+```mermaid
+flowchart LR
+    U1[Hiring Manager - Chat Page] -->|POST /chat or /generate| API[FastAPI - src/main.py]
+    U2[Candidate - Gallery Page] -->|POST /api/jds/{jd_id}/apply| API
+    U3[Recruiter - Recruiter Page] -->|GET /api/jds/{jd_id}/applications| API
+
+    API --> TMP[Load Template - src/template_store.py]
+    API --> REF[Load References - src/reference_store.py]
+    TMP --> LLM[Gemini on Vertex AI]
+    REF --> LLM
+    LLM --> JD[JD Markdown]
+    JD --> JDSTORE[Store JD in GCS - src/jd_store.py]
+    JDSTORE --> GCS1[(GCS Bucket jackytest007)]
+    GCS1 --> GALLERY[Gallery Listing]
+
+    API --> PARSE[Parse Resume - src/resume_parser.py]
+    API --> APPSTORE[Save/List Application - src/application_store.py]
+    PARSE --> APPSTORE
+    APPSTORE --> GCS2[(GCS Bucket jackytest008)]
+    GCS2 --> RANK[Score + Summary in src/main.py]
+    RANK --> DASH[Recruiter Dashboard View]
+```
+
+### Application + Recruiter Detail Flow
+```mermaid
+flowchart TD
+    A[Candidate clicks Apply] --> B[Upload resume + profile fields]
+    B --> C[src/main.py validates type and size]
+    C --> D[src/resume_parser.py extracts name email skills years]
+    D --> E[src/application_store.py checks duplicates]
+    E -->|Duplicate| F[Return existing application_id]
+    E -->|New| G[Save application.json + resume to GCS]
+    F --> H[Candidate sees success message]
+    G --> H
+
+    I[Recruiter opens dashboard] --> J[GET applications by jd_id]
+    J --> K[Load metadata from GCS]
+    K --> L[src/main.py computes match_score + strengths_summary]
+    L --> M[Sort by score high to low]
+    M --> N[Recruiter sees ranked candidates]
+    N --> O[Recruiter downloads resume]
+```
+
+### Diagram Legend
+- Left side is user action, middle is backend orchestration, right side is cloud storage/output.
+- `src/main.py` is the controller that connects all modules.
+- Vertex AI Gemini is the only generation engine for JD text.
+- GCS uses two logical areas: JDs (`jackytest007`) and applications (`jackytest008`).
+
 ## 3. File Purpose (Beginner-Friendly)
 
 ### Core backend

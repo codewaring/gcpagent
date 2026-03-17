@@ -24,6 +24,36 @@
             margin: 0 auto;
         }
 
+        .brand-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            color: #ffffff;
+            border-radius: 16px;
+            padding: 10px 14px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(6px);
+        }
+
+        .brand-logo {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+        }
+
+        .brand-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .brand-tagline {
+            font-size: 0.86em;
+            opacity: 0.92;
+        }
+
         .header {
             text-align: center;
             color: white;
@@ -51,6 +81,16 @@
         @media (max-width: 1024px) {
             .content {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .brand-title {
+                font-size: 1.18em;
+            }
+
+            .brand-tagline {
+                font-size: 0.8em;
             }
         }
 
@@ -408,6 +448,23 @@
 </head>
 <body>
     <div class="container">
+        <div class="brand-bar">
+            <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="#ffffff" stroke-width="4"/>
+                <circle cx="18" cy="16" r="4" fill="#ffffff"/>
+                <circle cx="47" cy="16" r="4" fill="#ffffff"/>
+                <circle cx="12" cy="31" r="4" fill="#ffffff"/>
+                <circle cx="52" cy="31" r="4" fill="#ffffff"/>
+                <circle cx="18" cy="48" r="4" fill="#ffffff"/>
+                <circle cx="47" cy="48" r="4" fill="#ffffff"/>
+                <path d="M23 24c4-6 12-6 16 0 2 3 1 8-3 10l-2 1v8h-4v-6l-3 1c-5 2-9-2-9-7 0-3 2-6 5-7z" fill="#ffffff"/>
+            </svg>
+            <div>
+                <div class="brand-title">Globe Telecom</div>
+                <div class="brand-tagline">JD Generation Assistant · Powered by Gemini</div>
+            </div>
+        </div>
+
         <div class="header">
             <h1>📋 JD Gallery</h1>
             <p>Generated Job Descriptions - Globe Telecom</p>

@@ -13,8 +13,13 @@ class ChatMessage:
 
 class ChatAgent:
     def __init__(self, model_name: str) -> None:
-        self.client = genai.Client()
+        self.client = None
         self.model_name = model_name
+
+    def _client(self) -> genai.Client:
+        if self.client is None:
+            self.client = genai.Client()
+        return self.client
 
     def _system_instruction(self, template_text: str, reference_context: str) -> str:
         return dedent(
@@ -59,7 +64,7 @@ class ChatAgent:
         ]
         contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
-        response = self.client.models.generate_content(
+        response = self._client().models.generate_content(
             model=self.model_name,
             contents=contents,
             config=types.GenerateContentConfig(
