@@ -9,6 +9,8 @@ class Settings:
     model_name: str
     template_dir: str
     reference_bucket: str
+    application_bucket: str
+    application_prefix: str
     reference_prefix: str
     reference_enabled: bool
     reference_max_files: int
@@ -29,6 +31,8 @@ def get_settings() -> Settings:
         model_name=os.getenv("MODEL_NAME", "gemini-2.5-pro"),
         template_dir=os.getenv("TEMPLATE_DIR", "templates"),
         reference_bucket=os.getenv("REFERENCE_BUCKET", ""),
+        application_bucket=os.getenv("APPLICATION_BUCKET", "jackytest008"),
+        application_prefix=os.getenv("APPLICATION_PREFIX", "job-applications"),
         reference_prefix=os.getenv("REFERENCE_PREFIX", ""),
         reference_enabled=_as_bool(os.getenv("REFERENCE_ENABLED", "true"), True),
         reference_max_files=int(os.getenv("REFERENCE_MAX_FILES", "20")),

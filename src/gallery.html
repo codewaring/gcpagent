@@ -213,6 +213,132 @@
             font-weight: 600;
         }
 
+        .apply-panel {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .apply-panel p {
+            font-size: 0.94em;
+            color: #6c757d;
+            margin-bottom: 14px;
+        }
+
+        .apply-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .apply-button {
+            border: none;
+            border-radius: 999px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #0c5aa0 0%, #1f7ae0 100%);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+
+        .apply-button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .apply-status {
+            font-size: 0.9em;
+            color: #495057;
+        }
+
+        .apply-success {
+            margin-top: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #e8fff3 0%, #d9f7e8 100%);
+            border: 1px solid #93e6b0;
+            color: #155724;
+        }
+
+        .apply-success-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .apply-success-meta {
+            font-size: 0.88em;
+            color: #25643a;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 50;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .apply-modal {
+            width: min(520px, 100%);
+            background: white;
+            border-radius: 22px;
+            padding: 28px;
+            box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+        }
+
+        .apply-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .apply-modal-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #212529;
+        }
+
+        .modal-close {
+            border: none;
+            background: #eef2f7;
+            color: #495057;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1.1em;
+            cursor: pointer;
+        }
+
+        .apply-upload {
+            margin: 18px 0;
+            padding: 18px;
+            border: 1px dashed #b8c5d1;
+            border-radius: 16px;
+            background: #f8fbff;
+        }
+
+        .apply-upload label {
+            display: block;
+            font-size: 0.9em;
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .apply-upload input {
+            width: 100%;
+            font-size: 0.92em;
+        }
+
         .tag {
             display: inline-block;
             background: #e7f3ff;
@@ -309,9 +435,88 @@
         </div>
     </div>
 
+    <div id="apply-modal-backdrop" class="modal-backdrop" onclick="closeApplyModal(event)">
+        <div class="apply-modal" onclick="event.stopPropagation()">
+            <div class="apply-modal-header">
+                <div>
+                    <div class="apply-modal-title" id="apply-modal-title">Apply</div>
+                </div>
+                <button class="modal-close" type="button" onclick="closeApplyModal()">×</button>
+            </div>
+            <form id="apply-modal-form" onsubmit="submitApplication(event)">
+                <div class="apply-upload">
+                    <label for="resume_file">Resume File</label>
+                    <input id="resume_file" name="resume_file" type="file" accept=".pdf,.doc,.docx" required>
+                </div>
+                <div class="apply-actions">
+                    <button id="apply-submit-button" class="apply-button" type="submit">Upload Resume</button>
+                    <div id="apply-status" class="apply-status"></div>
+                </div>
+                <div id="apply-success" class="apply-success"></div>
+            </form>
+        </div>
+    </div>
+
     <script>
         let allJDs = [];
         let currentJDId = null;
+        let currentJD = null;
+
+        function openApplyModal(jdId) {
+            currentJDId = jdId;
+            currentJD = allJDs.find((item) => item.jd_id === jdId) || null;
+            document.getElementById('apply-modal-title').textContent = currentJD ? `Apply: ${currentJD.role_title}` : 'Apply';
+            document.getElementById('apply-modal-backdrop').classList.add('open');
+            document.getElementById('apply-modal-form').reset();
+            document.getElementById('apply-status').textContent = '';
+            document.getElementById('apply-success').innerHTML = '';
+        }
+
+        function closeApplyModal(event) {
+            if (event && event.target !== event.currentTarget) {
+                return;
+            }
+            document.getElementById('apply-modal-backdrop').classList.remove('open');
+        }
+
+        async function submitApplication(event) {
+            event.preventDefault();
+            const form = event.target;
+            const status = document.getElementById('apply-status');
+            const successCard = document.getElementById('apply-success');
+            const button = document.getElementById('apply-submit-button');
+            const formData = new FormData(form);
+
+            status.textContent = 'Uploading application...';
+            status.style.color = '#495057';
+            successCard.innerHTML = '';
+            button.disabled = true;
+
+            try {
+                const response = await fetch(`/api/jds/${currentJDId}/apply`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.detail || `HTTP ${response.status}`);
+                }
+
+                status.textContent = 'Application uploaded successfully.';
+                status.style.color = '#155724';
+                successCard.innerHTML = `
+                    <div class="apply-success-title">Application submitted successfully</div>
+                    <div class="apply-success-meta">Reference ID: ${escapeHtml(payload.application_id)}. The recruiter dashboard now has your parsed resume details.</div>
+                `;
+                form.reset();
+            } catch (error) {
+                status.textContent = `Upload failed: ${error.message}`;
+                status.style.color = '#721c24';
+            } finally {
+                button.disabled = false;
+            }
+        }
 
         async function loadJDList() {
             try {
@@ -373,6 +578,7 @@
 
         function renderJDDetail(jd) {
             const container = document.getElementById('jd-detail-container');
+            currentJD = jd;
             const tagsHtml = jd.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
             
             const createdDate = new Date(jd.created_at).toLocaleDateString('en-US', {
@@ -407,6 +613,12 @@
                     </div>
                 </div>
                 <div class="jd-content">${contentHtml}</div>
+                <div class="apply-panel">
+                    <p>如果你有兴趣，请在这里上传你的简历来申请。</p>
+                    <div class="apply-actions">
+                        <button class="apply-button" type="button" onclick="openApplyModal('${jd.jd_id}')">Apply</button>
+                    </div>
+                </div>
             `;
         }
 
@@ -418,10 +630,9 @@
                 '"': '&quot;',
                 "'": '&#039;'
             };
-            return text.replace(/[&<>"']/g, m => map[m]);
+            return String(text || '').replace(/[&<>"']/g, m => map[m]);
         }
 
-        // Load JDs on page load
         loadJDList();
     </script>
 </body>

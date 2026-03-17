@@ -1,14 +1,16 @@
 from pathlib import Path
 import re
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from .application_store import ApplicationStore
 from .chat_agent import ChatAgent, ChatMessage
 from .config import get_settings
 from .jd_agent import JDAgent, JDRequest
 from .reference_store import GCSReferenceStore
+from .resume_parser import ResumeParser
 from .template_store import TemplateStore
 from .jd_store import JDStore, JDMetadata
 
@@ -66,6 +68,30 @@ class JDDetailResponse(BaseModel):
     content: str
 
 
+class ApplicationResponse(BaseModel):
+    application_id: str
+    message: str
+
+
+class ApplicationListItem(BaseModel):
+    application_id: str
+    jd_id: str
+    applicant_name: str
+    applicant_email: str
+    applicant_phone: str
+    match_score: int
+    matched_skills: list[str]
+    strengths_summary: str
+    current_title: str
+    years_experience: str
+    skills: list[str]
+    profile_summary: str
+    resume_filename: str
+    resume_content_type: str
+    uploaded_at: str
+    resume_download_url: str
+
+
 settings = get_settings()
 app = FastAPI(title="Globe Telecom JD Agent", version="0.1.0")
 store = TemplateStore(settings.template_dir)
@@ -76,8 +102,21 @@ reference_store = GCSReferenceStore(
 )
 chat_agent = ChatAgent(settings.model_name)
 jd_store = JDStore(bucket_name=settings.reference_bucket, prefix="generated-jds")
+resume_parser = ResumeParser()
+application_store = ApplicationStore(
+    bucket_name=settings.application_bucket,
+    prefix=settings.application_prefix,
+)
 _CHAT_HTML = (Path(__file__).parent / "chat.html").read_text(encoding="utf-8")
 _GALLERY_HTML = (Path(__file__).parent / "gallery.html").read_text(encoding="utf-8")
+_RECRUITER_HTML = (Path(__file__).parent / "recruiter.html").read_text(encoding="utf-8")
+
+_ALLOWED_RESUME_EXTENSIONS = {".pdf", ".doc", ".docx"}
+_ALLOWED_RESUME_CONTENT_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 
 
 def _clean_jd_content(text: str) -> str:
@@ -105,6 +144,80 @@ def _extract_role_title(message: str, jd_content: str) -> str:
             return match.group(1).strip().rstrip(".")
 
     return "Generated Role"
+
+
+def _validate_resume_upload(file: UploadFile) -> None:
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in _ALLOWED_RESUME_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Resume must be a PDF, DOC, or DOCX file")
+
+    if file.content_type and file.content_type not in _ALLOWED_RESUME_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported resume content type")
+
+
+def _extract_years(text: str) -> int | None:
+    match = re.search(r"(\d{1,2})\s*\+?\s*years?", text, flags=re.IGNORECASE)
+    return int(match.group(1)) if match else None
+
+
+def _calculate_match(
+    jd_content: str,
+    role_title: str,
+    current_title: str,
+    years_experience: str,
+    skills: list[str],
+    profile_summary: str,
+) -> tuple[int, list[str], str]:
+    jd_lower = jd_content.lower()
+    matched_skills = [skill for skill in skills if skill.lower() in jd_lower]
+
+    skill_score = min(60, len(matched_skills) * 12)
+
+    required_years = _extract_years(jd_content) or 0
+    candidate_years = _extract_years(years_experience) or 0
+    if required_years > 0 and candidate_years > 0:
+        if candidate_years >= required_years:
+            experience_score = 20
+        elif candidate_years >= max(1, required_years - 2):
+            experience_score = 12
+        else:
+            experience_score = 6
+    elif candidate_years > 0:
+        experience_score = 10
+    else:
+        experience_score = 0
+
+    title_score = 0
+    role_tokens = {token for token in re.findall(r"[a-zA-Z]+", role_title.lower()) if len(token) >= 4}
+    current_title_lower = current_title.lower()
+    if current_title and any(token in current_title_lower for token in role_tokens):
+        title_score = 15
+    elif current_title:
+        title_score = 6
+
+    summary_bonus = 5 if profile_summary else 0
+    total_score = min(100, skill_score + experience_score + title_score + summary_bonus)
+
+    if matched_skills:
+        top_skills = ", ".join(matched_skills[:3])
+        sentence_one = f"Strong overlap with this JD on {top_skills}."
+    elif skills:
+        sentence_one = "Has transferable skills that can support core responsibilities for this role."
+    else:
+        sentence_one = "Profile has limited detectable skill keywords from the resume text."
+
+    if candidate_years > 0 and required_years > 0:
+        if candidate_years >= required_years:
+            sentence_two = f"Experience level appears aligned ({candidate_years} years vs {required_years}+ years expected)."
+        else:
+            sentence_two = f"Experience appears slightly below target ({candidate_years} years vs {required_years}+ years expected)."
+    elif current_title:
+        sentence_two = f"Current role as {current_title} indicates relevant practical context."
+    else:
+        sentence_two = "Recommend manual review for deeper fit validation."
+
+    strengths_summary = f"{sentence_one} {sentence_two}"
+    return total_score, matched_skills, strengths_summary
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -236,6 +349,11 @@ def gallery_ui() -> str:
     return _GALLERY_HTML
 
 
+@app.get("/recruiter", response_class=HTMLResponse)
+def recruiter_ui() -> str:
+    return _RECRUITER_HTML
+
+
 @app.get("/api/jds", response_model=list[JDListItem])
 def list_jds() -> list[JDListItem]:
     """
@@ -298,3 +416,154 @@ def get_jd_detail(jd_id: str) -> JDDetailResponse:
         tags=metadata.tags,
         content=cleaned_content,
     )
+
+
+@app.post("/api/jds/{jd_id}/apply", response_model=ApplicationResponse)
+async def apply_to_jd(
+    jd_id: str,
+    applicant_name: str = Form(""),
+    applicant_email: str = Form(""),
+    applicant_phone: str = Form(""),
+    resume_file: UploadFile = File(...),
+) -> ApplicationResponse:
+    jds = jd_store.list_jds()
+    if not any(jd.jd_id == jd_id for jd in jds):
+        raise HTTPException(status_code=404, detail=f"JD {jd_id} not found")
+
+    _validate_resume_upload(resume_file)
+    resume_bytes = await resume_file.read()
+    if not resume_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded resume file is empty")
+
+    if len(resume_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Resume file must be 10MB or smaller")
+
+    try:
+        insights = resume_parser.parse(resume_file.filename or "resume.pdf", resume_bytes)
+        resolved_name = applicant_name.strip() or insights.applicant_name or "Candidate"
+        resolved_email = applicant_email.strip() or insights.applicant_email
+        resolved_phone = applicant_phone.strip() or insights.applicant_phone
+
+        record = application_store.save_application(
+            jd_id=jd_id,
+            applicant_name=resolved_name,
+            applicant_email=resolved_email,
+            applicant_phone=resolved_phone,
+            current_title=insights.current_title,
+            years_experience=insights.years_experience,
+            skills=insights.skills,
+            profile_summary=insights.profile_summary,
+            resume_filename=resume_file.filename or "resume.pdf",
+            resume_content_type=resume_file.content_type or "application/octet-stream",
+            resume_bytes=resume_bytes,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to upload application: {exc}") from exc
+
+    return ApplicationResponse(
+        application_id=record.application_id,
+        message="Application submitted successfully",
+    )
+
+
+@app.get("/api/jds/{jd_id}/applications", response_model=list[ApplicationListItem])
+def list_applications_for_jd(jd_id: str) -> list[ApplicationListItem]:
+    jds = jd_store.list_jds()
+    if not any(jd.jd_id == jd_id for jd in jds):
+        raise HTTPException(status_code=404, detail=f"JD {jd_id} not found")
+
+    records = application_store.list_applications(jd_id)
+    jd_content = jd_store.get_jd(jd_id) or ""
+    metadata = next((jd for jd in jds if jd.jd_id == jd_id), None)
+    role_title = metadata.role_title
+    enriched = []
+    for record in records:
+        match_score, matched_skills, strengths_summary = _calculate_match(
+            jd_content=jd_content,
+            role_title=role_title,
+            current_title=record.current_title,
+            years_experience=record.years_experience,
+            skills=record.skills,
+            profile_summary=record.profile_summary,
+        )
+        enriched.append(
+            ApplicationListItem(
+                application_id=record.application_id,
+                jd_id=record.jd_id,
+                applicant_name=record.applicant_name,
+                applicant_email=record.applicant_email,
+                applicant_phone=record.applicant_phone,
+                match_score=match_score,
+                matched_skills=matched_skills,
+                strengths_summary=strengths_summary,
+                current_title=record.current_title,
+                years_experience=record.years_experience,
+                skills=record.skills,
+                profile_summary=record.profile_summary,
+                resume_filename=record.resume_filename,
+                resume_content_type=record.resume_content_type,
+                uploaded_at=record.uploaded_at,
+                resume_download_url=f"/api/jds/{record.jd_id}/applications/{record.application_id}/resume",
+            )
+        )
+
+    enriched.sort(key=lambda item: (item.match_score, item.uploaded_at), reverse=True)
+    return enriched
+
+
+@app.get("/api/applications", response_model=list[ApplicationListItem])
+def list_all_applications() -> list[ApplicationListItem]:
+    records = application_store.list_applications()
+    jd_metadata = {jd.jd_id: jd for jd in jd_store.list_jds()}
+    jd_content_cache: dict[str, str] = {}
+
+    items: list[ApplicationListItem] = []
+    for record in records:
+        jd_content = jd_content_cache.get(record.jd_id)
+        if jd_content is None:
+            jd_content = jd_store.get_jd(record.jd_id) or ""
+            jd_content_cache[record.jd_id] = jd_content
+
+        role_title = jd_metadata.get(record.jd_id).role_title if jd_metadata.get(record.jd_id) else ""
+        match_score, matched_skills, strengths_summary = _calculate_match(
+            jd_content=jd_content,
+            role_title=role_title,
+            current_title=record.current_title,
+            years_experience=record.years_experience,
+            skills=record.skills,
+            profile_summary=record.profile_summary,
+        )
+        items.append(
+            ApplicationListItem(
+                application_id=record.application_id,
+                jd_id=record.jd_id,
+                applicant_name=record.applicant_name,
+                applicant_email=record.applicant_email,
+                applicant_phone=record.applicant_phone,
+                match_score=match_score,
+                matched_skills=matched_skills,
+                strengths_summary=strengths_summary,
+                current_title=record.current_title,
+                years_experience=record.years_experience,
+                skills=record.skills,
+                profile_summary=record.profile_summary,
+                resume_filename=record.resume_filename,
+                resume_content_type=record.resume_content_type,
+                uploaded_at=record.uploaded_at,
+                resume_download_url=f"/api/jds/{record.jd_id}/applications/{record.application_id}/resume",
+            )
+        )
+
+    items.sort(key=lambda item: (item.match_score, item.uploaded_at), reverse=True)
+    return items
+
+
+@app.get("/api/jds/{jd_id}/applications/{application_id}/resume")
+def download_application_resume(jd_id: str, application_id: str) -> StreamingResponse:
+    payload = application_store.get_resume_bytes(jd_id, application_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Resume file not found")
+
+    content, content_type, filename = payload
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(iter([content]), media_type=content_type, headers=headers)

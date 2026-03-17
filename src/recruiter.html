@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruiter Dashboard - Globe Telecom</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Georgia, "Times New Roman", serif;
+            background: linear-gradient(160deg, #f4f8fb 0%, #dfeaf3 100%);
+            color: #183247;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .shell {
+            max-width: 1320px;
+            margin: 0 auto;
+        }
+
+        .hero {
+            margin-bottom: 24px;
+            padding: 28px 30px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #0b4f7c 0%, #0f7f9a 100%);
+            color: #fff;
+            box-shadow: 0 24px 50px rgba(11, 79, 124, 0.25);
+        }
+
+        .hero h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+        }
+
+        .hero p {
+            font-size: 1rem;
+            opacity: 0.92;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 22px;
+        }
+
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            border-radius: 22px;
+            padding: 22px;
+            box-shadow: 0 18px 40px rgba(24, 50, 71, 0.12);
+        }
+
+        .panel h2 {
+            font-size: 1.15rem;
+            margin-bottom: 14px;
+        }
+
+        .jd-entry {
+            border: 1px solid #d6e2eb;
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: 0.2s ease;
+            background: #fff;
+        }
+
+        .jd-entry:hover,
+        .jd-entry.active {
+            border-color: #0f7f9a;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(15, 127, 154, 0.12);
+        }
+
+        .jd-entry-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .jd-entry-meta {
+            font-size: 0.88rem;
+            color: #527188;
+        }
+
+        .count-pill {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #e8f4fa;
+            color: #0b4f7c;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-note {
+            color: #5c7386;
+            font-size: 0.92rem;
+        }
+
+        .applications {
+            display: grid;
+            gap: 14px;
+        }
+
+        .application-card {
+            border: 1px solid #d6e2eb;
+            border-radius: 18px;
+            padding: 18px;
+            background: #fff;
+        }
+
+        .application-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .application-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .application-time {
+            font-size: 0.84rem;
+            color: #6b8294;
+        }
+
+        .score-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #153f5c;
+            color: #fff;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .application-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        @media (max-width: 780px) {
+            .application-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .application-meta {
+            font-size: 0.92rem;
+            color: #355063;
+        }
+
+        .application-section-title {
+            margin: 4px 0 10px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #183247;
+        }
+
+        .skills-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .skill-pill {
+            display: inline-flex;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #e8f4fa;
+            color: #0b4f7c;
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .summary-box {
+            border-radius: 14px;
+            background: #f7fafc;
+            border: 1px solid #d6e2eb;
+            padding: 14px;
+            font-size: 0.92rem;
+            line-height: 1.6;
+            color: #355063;
+            margin-bottom: 14px;
+        }
+
+        .strength-box {
+            border-radius: 14px;
+            background: #eef8ff;
+            border: 1px solid #b8dff8;
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #23465f;
+            margin-bottom: 14px;
+        }
+
+        .download-link {
+            display: inline-block;
+            padding: 10px 14px;
+            border-radius: 999px;
+            text-decoration: none;
+            background: #183247;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .empty,
+        .error {
+            border-radius: 16px;
+            padding: 16px;
+            font-size: 0.95rem;
+        }
+
+        .empty {
+            background: #f7fafc;
+            color: #6b8294;
+        }
+
+        .error {
+            background: #fdeceb;
+            color: #862d2a;
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="hero">
+            <h1>Recruiter Dashboard</h1>
+            <p>Review incoming applications by job description, inspect applicant details, and download source resumes from the application bucket.</p>
+        </div>
+
+        <div class="layout">
+            <div class="panel">
+                <h2>Job Descriptions</h2>
+                <div id="jd-list"></div>
+            </div>
+
+            <div class="panel">
+                <div class="toolbar">
+                    <div>
+                        <h2 id="applications-title">Applications</h2>
+                        <div id="applications-note" class="toolbar-note">Select a JD to inspect candidates.</div>
+                    </div>
+                </div>
+                <div id="applications"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let jds = [];
+        let selectedId = null;
+        let applicationCounts = {};
+
+        function formatDate(value) {
+            return new Date(value).toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text || '').replace(/[&<>"']/g, (char) => map[char]);
+        }
+
+        async function loadDashboard() {
+            const jdList = document.getElementById('jd-list');
+            jdList.innerHTML = '<div class="empty">Loading job descriptions...</div>';
+            try {
+                const [jdResponse, applicationResponse] = await Promise.all([
+                    fetch('/api/jds'),
+                    fetch('/api/applications')
+                ]);
+                if (!jdResponse.ok || !applicationResponse.ok) {
+                    throw new Error('Failed to load recruiter data');
+                }
+
+                jds = await jdResponse.json();
+                const applications = await applicationResponse.json();
+                applicationCounts = {};
+                for (const item of applications) {
+                    applicationCounts[item.jd_id] = (applicationCounts[item.jd_id] || 0) + 1;
+                }
+                renderJDList();
+                if (jds.length > 0) {
+                    selectJD(jds[0].jd_id);
+                }
+            } catch (error) {
+                jdList.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+                document.getElementById('applications').innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        function renderJDList() {
+            const jdList = document.getElementById('jd-list');
+            if (jds.length === 0) {
+                jdList.innerHTML = '<div class="empty">No job descriptions found.</div>';
+                return;
+            }
+
+            jdList.innerHTML = jds.map((jd) => `
+                <div class="jd-entry ${jd.jd_id === selectedId ? 'active' : ''}" onclick="selectJD('${jd.jd_id}')">
+                    <div class="jd-entry-title">${escapeHtml(jd.role_title)}</div>
+                    <div class="jd-entry-meta">${escapeHtml(jd.business_unit)} · ${escapeHtml(jd.location)}</div>
+                    <div class="count-pill">${applicationCounts[jd.jd_id] || 0} application(s)</div>
+                </div>
+            `).join('');
+        }
+
+        async function selectJD(jdId) {
+            selectedId = jdId;
+            await loadApplications(jdId);
+            renderJDList();
+        }
+
+        async function loadApplications(jdId) {
+            const applicationsContainer = document.getElementById('applications');
+            const title = document.getElementById('applications-title');
+            const note = document.getElementById('applications-note');
+            const jd = jds.find((item) => item.jd_id === jdId);
+
+            title.textContent = jd ? `${jd.role_title} Applications` : 'Applications';
+            note.textContent = 'Loading applicants...';
+            applicationsContainer.innerHTML = '<div class="empty">Loading applications...</div>';
+
+            try {
+                const response = await fetch(`/api/jds/${jdId}/applications`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const items = await response.json();
+                applicationCounts[jdId] = items.length;
+                note.textContent = `${items.length} application(s) received, sorted by match score.`;
+
+                if (items.length === 0) {
+                    applicationsContainer.innerHTML = '<div class="empty">No applications yet for this job description.</div>';
+                    return items;
+                }
+
+                applicationsContainer.innerHTML = items.map((item) => `
+                    <div class="application-card">
+                        <div class="application-header">
+                            <div>
+                                <div class="application-name">${escapeHtml(item.applicant_name)}</div>
+                                <div class="application-time">Submitted ${formatDate(item.uploaded_at)}</div>
+                            </div>
+                            <span class="score-pill">Match ${escapeHtml(item.match_score)} / 100</span>
+                            <a class="download-link" href="${escapeHtml(item.resume_download_url)}">Download Resume</a>
+                        </div>
+                        <div class="application-grid">
+                            <div class="application-meta"><strong>Email:</strong> ${escapeHtml(item.applicant_email)}</div>
+                            <div class="application-meta"><strong>Phone:</strong> ${escapeHtml(item.applicant_phone || 'Not provided')}</div>
+                            <div class="application-meta"><strong>Current Title:</strong> ${escapeHtml(item.current_title || 'Not detected')}</div>
+                            <div class="application-meta"><strong>Experience:</strong> ${escapeHtml(item.years_experience || 'Not detected')}</div>
+                            <div class="application-meta"><strong>File:</strong> ${escapeHtml(item.resume_filename)}</div>
+                            <div class="application-meta"><strong>Application ID:</strong> ${escapeHtml(item.application_id)}</div>
+                        </div>
+                        <div class="application-section-title">Strength Highlights</div>
+                        <div class="strength-box">${escapeHtml(item.strengths_summary || 'No strength summary generated.')}</div>
+                        <div class="application-section-title">Resume Summary</div>
+                        <div class="summary-box">${escapeHtml(item.profile_summary || 'No summary could be extracted from this resume.')}</div>
+                        <div class="application-section-title">Detected Skills</div>
+                        <div class="skills-row">${renderSkills(item.skills)}</div>
+                    </div>
+                `).join('');
+                return items;
+            } catch (error) {
+                note.textContent = 'Failed to load applications.';
+                applicationsContainer.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+                return [];
+            }
+        }
+
+        function renderSkills(skills) {
+            if (!skills || skills.length === 0) {
+                return '<span class="application-meta">No skills detected</span>';
+            }
+            return skills.map((skill) => `<span class="skill-pill">${escapeHtml(skill)}</span>`).join('');
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
