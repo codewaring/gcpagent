@@ -1,4 +1,5 @@
 import json
+import hashlib
 import re
 import subprocess
 import tempfile
@@ -21,6 +22,7 @@ class ApplicationRecord:
     years_experience: str
     skills: list[str]
     profile_summary: str
+    resume_fingerprint: str
     resume_filename: str
     resume_content_type: str
     uploaded_at: str
@@ -52,6 +54,7 @@ class ApplicationStore:
         resume_content_type: str,
         resume_bytes: bytes,
     ) -> ApplicationRecord:
+        resume_fingerprint = self._compute_fingerprint(resume_bytes)
         application_id = uuid.uuid4().hex[:10]
         uploaded_at = datetime.now(timezone.utc).isoformat()
         safe_name = self._slugify(applicant_name) or "candidate"
@@ -70,6 +73,7 @@ class ApplicationStore:
             years_experience=years_experience,
             skills=skills,
             profile_summary=profile_summary,
+            resume_fingerprint=resume_fingerprint,
             resume_filename=safe_filename,
             resume_content_type=resume_content_type,
             uploaded_at=uploaded_at,
@@ -88,6 +92,7 @@ class ApplicationStore:
                 "years_experience": record.years_experience,
                 "skills": record.skills,
                 "profile_summary": record.profile_summary,
+                "resume_fingerprint": record.resume_fingerprint,
                 "resume_filename": record.resume_filename,
                 "resume_content_type": record.resume_content_type,
                 "uploaded_at": record.uploaded_at,
@@ -131,6 +136,7 @@ class ApplicationStore:
                         years_experience=data.get("years_experience", ""),
                         skills=data.get("skills", []),
                         profile_summary=data.get("profile_summary", ""),
+                        resume_fingerprint=data.get("resume_fingerprint", ""),
                         resume_filename=data["resume_filename"],
                         resume_content_type=data.get("resume_content_type", "application/octet-stream"),
                         uploaded_at=data["uploaded_at"],
@@ -142,6 +148,28 @@ class ApplicationStore:
                 print(f"Warning: Could not parse application metadata {metadata_path}: {exc}")
         records.sort(key=lambda item: item.uploaded_at, reverse=True)
         return records
+
+    def find_duplicate_application(
+        self,
+        jd_id: str,
+        resume_bytes: bytes,
+        applicant_email: str,
+    ) -> ApplicationRecord | None:
+        fingerprint = self._compute_fingerprint(resume_bytes)
+        normalized_email = applicant_email.strip().lower()
+
+        for record in self.list_applications(jd_id):
+            if record.resume_fingerprint and record.resume_fingerprint == fingerprint:
+                return record
+
+            if not record.resume_fingerprint:
+                existing_resume = self._download_bytes(record.resume_blob_path)
+                if existing_resume and self._compute_fingerprint(existing_resume) == fingerprint:
+                    return record
+
+            if normalized_email and record.applicant_email.strip().lower() == normalized_email:
+                return record
+        return None
 
     def get_resume_bytes(self, jd_id: str, application_id: str) -> tuple[bytes, str, str] | None:
         record = next(
@@ -233,3 +261,7 @@ class ApplicationStore:
         stem = re.sub(r"[^A-Za-z0-9._-]+", "_", path.stem).strip("._") or "resume"
         suffix = re.sub(r"[^A-Za-z0-9.]", "", path.suffix.lower()) or ".bin"
         return f"{stem}{suffix}"
+
+    @staticmethod
+    def _compute_fingerprint(payload: bytes) -> str:
+        return hashlib.sha256(payload).hexdigest()

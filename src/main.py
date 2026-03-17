@@ -71,6 +71,7 @@ class JDDetailResponse(BaseModel):
 class ApplicationResponse(BaseModel):
     application_id: str
     message: str
+    is_duplicate: bool = False
 
 
 class ApplicationListItem(BaseModel):
@@ -510,6 +511,18 @@ async def apply_to_jd(
         resolved_email = applicant_email.strip() or insights.applicant_email
         resolved_phone = applicant_phone.strip() or insights.applicant_phone
 
+        duplicate = application_store.find_duplicate_application(
+            jd_id=jd_id,
+            resume_bytes=resume_bytes,
+            applicant_email=resolved_email,
+        )
+        if duplicate:
+            return ApplicationResponse(
+                application_id=duplicate.application_id,
+                message="Duplicate application detected. Existing submission reused.",
+                is_duplicate=True,
+            )
+
         record = application_store.save_application(
             jd_id=jd_id,
             applicant_name=resolved_name,
@@ -529,6 +542,7 @@ async def apply_to_jd(
     return ApplicationResponse(
         application_id=record.application_id,
         message="Application submitted successfully",
+        is_duplicate=False,
     )
 
 
