@@ -40,6 +40,8 @@ class ChatAgent:
               employment type → Full-time) rather than asking.
             - Always respond in English unless the user explicitly writes in another language.
             - Always output the final JD in Markdown inside the same reply.
+                        - Start the reply directly with the JD title as a Markdown heading.
+                        - Do not add any preface such as "Of course" or "Here is the JD" before the first heading.
             - Keep tone professional, inclusive, and specific to telecom and digital services.
             """
         ).strip()

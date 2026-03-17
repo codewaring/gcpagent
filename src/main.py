@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -79,6 +80,33 @@ _CHAT_HTML = (Path(__file__).parent / "chat.html").read_text(encoding="utf-8")
 _GALLERY_HTML = (Path(__file__).parent / "gallery.html").read_text(encoding="utf-8")
 
 
+def _clean_jd_content(text: str) -> str:
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            return "\n".join(lines[index:]).strip()
+    return text.strip()
+
+
+def _extract_role_title(message: str, jd_content: str) -> str:
+    cleaned_content = _clean_jd_content(jd_content)
+    for line in cleaned_content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            return stripped.lstrip("#").strip()
+
+    patterns = [
+        r"(?:for|as|role of|position of)\s+a?n?\s+([A-Za-z][A-Za-z /&-]+)",
+        r"(?:generate|create|write)\s+(?:a\s+jd\s+for\s+)?([A-Za-z][A-Za-z /&-]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, message, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip().rstrip(".")
+
+    return "Generated Role"
+
+
 @app.get("/", response_class=HTMLResponse)
 def chat_ui() -> str:
     return _CHAT_HTML
@@ -131,37 +159,13 @@ def chat(payload: ChatRequest) -> ChatResponse:
     # Try to save JD to GCS (if it looks like a JD was generated)
     if len(reply_text) > 200 and "##" in reply_text:  # Likely a generated JD
         try:
-            # Extract job title and business unit from message or use defaults
-            role_title = "Generated Role"
+            cleaned_jd_content = _clean_jd_content(reply_text)
+            role_title = _extract_role_title(payload.message, cleaned_jd_content)
             business_unit = "Globe Telecom"
             location = "Manila, Philippines"
-            
-            # Simple heuristic: look for role/title mentions in user message
-            message_lower = payload.message.lower()
-            if "database" in message_lower:
-                role_title = "Database Administrator"
-            elif "engineer" in message_lower or "developer" in message_lower:
-                if "senior" in message_lower:
-                    role_title = "Senior Engineer"
-                elif "junior" in message_lower:
-                    role_title = "Junior Engineer"
-                else:
-                    role_title = "Software Engineer"
-            elif "data" in message_lower:
-                role_title = "Data Specialist"
-            elif "network" in message_lower:
-                role_title = "Network Engineer"
-            elif "manager" in message_lower or "lead" in message_lower:
-                role_title = "Team Lead"
-            
-            # Extract from reply if available
-            for line in reply_text.split("\n")[:5]:
-                if "job title" in line.lower() or "position" in line.lower():
-                    role_title = line.split(":")[-1].strip().strip("#").strip()
-                    break
-            
+
             jd_store.save_jd(
-                content=reply_text,
+                content=cleaned_jd_content,
                 role_title=role_title,
                 business_unit=business_unit,
                 location=location,
@@ -241,17 +245,22 @@ def list_jds() -> list[JDListItem]:
         List of JD metadata (sorted by most recent first)
     """
     jds = jd_store.list_jds()
-    return [
-        JDListItem(
-            jd_id=jd.jd_id,
-            role_title=jd.role_title,
-            business_unit=jd.business_unit,
-            location=jd.location,
-            created_at=jd.created_at,
-            tags=jd.tags,
+    items: list[JDListItem] = []
+    for jd in jds:
+        content = jd_store.get_jd(jd.jd_id) or ""
+        cleaned_content = _clean_jd_content(content)
+        resolved_title = _extract_role_title(jd.role_title, cleaned_content) if cleaned_content else jd.role_title
+        items.append(
+            JDListItem(
+                jd_id=jd.jd_id,
+                role_title=resolved_title,
+                business_unit=jd.business_unit,
+                location=jd.location,
+                created_at=jd.created_at,
+                tags=jd.tags,
+            )
         )
-        for jd in jds
-    ]
+    return items
 
 
 @app.get("/api/jds/{jd_id}", response_model=JDDetailResponse)
@@ -276,13 +285,16 @@ def get_jd_detail(jd_id: str) -> JDDetailResponse:
     content = jd_store.get_jd(jd_id)
     if not content:
         raise HTTPException(status_code=404, detail=f"JD {jd_id} content not found")
+
+    cleaned_content = _clean_jd_content(content)
+    resolved_title = _extract_role_title(metadata.role_title, cleaned_content)
     
     return JDDetailResponse(
         jd_id=metadata.jd_id,
-        role_title=metadata.role_title,
+        role_title=resolved_title,
         business_unit=metadata.business_unit,
         location=metadata.location,
         created_at=metadata.created_at,
         tags=metadata.tags,
-        content=content,
+        content=cleaned_content,
     )

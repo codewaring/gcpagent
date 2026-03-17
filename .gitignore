@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 .env
 *.log
+tmp_resumes_v1/
+tmp_resumes_pdf_v1/
