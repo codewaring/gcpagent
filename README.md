@@ -1,75 +1,115 @@
-# Globe Telecom JD Agent on Google Cloud
+# Globe Telecom JD + Hiring Demo on Google Cloud
 
-A conversational job description generation agent with persistent storage and public gallery UI. Generate, store, and browse job descriptions using natural language and Gemini AI.
+Production-style demo that generates job descriptions with Gemini, publishes them in a public gallery, accepts candidate applications, parses resumes, ranks candidates, and exposes a recruiter dashboard.
 
-## 🎯 Features
+## What This Demo Can Do
 
-### Interactive Chat Interface
-- Natural language JD generation: *"Create a JD for a Senior Data Engineer"*
-- Multi-turn conversation support
-- English-language UI with real-time Markdown rendering
-- Example prompts for quick start
+- Generate JD content with Gemini (`/chat`, `/generate`)
+- Store JDs in Google Cloud Storage with metadata indexing
+- Public gallery for JD browsing and application upload
+- Resume upload pipeline (PDF/DOC/DOCX)
+- Automatic resume parsing (name, email, phone, title, years, skills, summary)
+- Recruiter dashboard with ranking and strengths summary
+- Application deduplication by resume fingerprint and email
 
-### Public JD Gallery
-- Browse all generated job descriptions
-- Filter and sort by date, role, or business unit
-- Professional UI with responsive design
-- Automatic search and discovery
+## Google Cloud AI Capabilities (Critical Demo Mapping)
 
-### REST APIs
-- `GET /api/jds` - List all generated JDs with metadata
-- `GET /api/jds/{id}` - Retrieve full JD details
-- `POST /chat` - Generate JDs conversationally
-- `GET /health` - Health check for load balancers
+This project is specifically a Google Cloud AI demo. The AI and cloud capabilities are implemented in the files and symbols below.
 
-### Intelligent Storage
-- Automatically saves JDs to Google Cloud Storage
-- Metadata indexing for fast retrieval
-- Graceful fallback from SDK to gcloud CLI
+| Capability | Google Cloud Service | Where In Code |
+|---|---|---|
+| Conversational JD generation | Vertex AI Gemini | `src/chat_agent.py` -> `ChatAgent.reply()` using `genai.Client().models.generate_content(...)` |
+| Structured JD generation API | Vertex AI Gemini | `src/jd_agent.py` -> `JDAgent.generate()` |
+| Model and region configuration | Vertex AI runtime config | `src/config.py` -> `get_settings()` reads `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `MODEL_NAME`, `GOOGLE_GENAI_USE_VERTEXAI` |
+| Reference-grounded prompts | Cloud Storage + Gemini prompt context | `src/reference_store.py` -> `build_reference_context()`, consumed by `src/main.py` in `/chat` and `/generate` |
+| JD persistence | Cloud Storage | `src/jd_store.py` -> `save_jd()`, `get_jd()`, `list_jds()` |
+| Application and resume persistence | Cloud Storage | `src/application_store.py` -> `save_application()`, `list_applications()`, `get_resume_bytes()` |
+| Duplicate prevention | Cloud Storage metadata + fingerprinting | `src/application_store.py` -> `find_duplicate_application()`, wired in `src/main.py` -> `apply_to_jd()` |
 
-### Reference Integration
-- Dynamically loads example JDs and templates from GCS
-- Supports PDF, Markdown, and text documents
-- Learns from your company's existing job descriptions
+## API Surface
 
-## Project Structure
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | Chat UI |
+| `GET /gallery` | Public JD gallery UI |
+| `GET /recruiter` | Recruiter dashboard UI |
+| `POST /chat` | Conversational JD generation |
+| `POST /generate` | Structured JD generation |
+| `GET /api/jds` | List JDs |
+| `GET /api/jds/{jd_id}` | JD detail |
+| `POST /api/jds/{jd_id}/apply` | Upload candidate resume for a JD |
+| `GET /api/jds/{jd_id}/applications` | Ranked candidates for one JD |
+| `GET /api/applications` | Ranked candidates across all JDs |
+| `GET /api/jds/{jd_id}/applications/{application_id}/resume` | Download resume |
+| `GET /health` | Health check |
 
+## File-by-File Purpose
+
+### Backend (`src/*.py`)
+
+- `src/main.py`
+  - FastAPI entrypoint, route registration, response models
+  - Upload validation, resume parsing orchestration, candidate scoring, strengths summary generation
+  - Dedup guard in `apply_to_jd()` via `ApplicationStore.find_duplicate_application()`
+- `src/chat_agent.py`
+  - Multi-turn chat JD generation with Gemini
+  - System prompt rules and template/reference injection
+- `src/jd_agent.py`
+  - Structured prompt-based JD generation path (`/generate`)
+- `src/reference_store.py`
+  - Reads reference files from GCS (SDK first, gcloud fallback)
+  - Extracts text from PDF/TXT/MD for prompt grounding
+- `src/jd_store.py`
+  - Stores generated JD markdown and maintains `.index.json`
+- `src/application_store.py`
+  - Stores application metadata + resume files in GCS
+  - Handles duplicate detection by SHA-256 fingerprint and email
+- `src/resume_parser.py`
+  - Resume text extraction and information parsing
+  - PDF and DOCX handling, skills extraction, summary extraction
+- `src/config.py`
+  - Environment-driven runtime settings
+- `src/template_store.py`
+  - Loads JD template markdown from disk
+
+### Frontend (`src/*.html`)
+
+- `src/chat.html`
+  - Chat UX for JD generation
+- `src/gallery.html`
+  - Public JD list/detail page
+  - Bottom-only `Apply` action and upload modal
+- `src/recruiter.html`
+  - Recruiter-side candidate list
+  - Shows score, strengths summary, parsed resume fields, and resume download
+
+### Supporting Files
+
+- `templates/globe_telecom_default.md`: Base JD output format
+- `.env.example`: Required runtime variables for Google Cloud + buckets
+- `requirements.txt`: Python dependencies
+- `IMPLEMENTATION.md`: Deep architecture and flow explanation
+- `FEATURES.md`: Feature changelog snapshot
+
+## Storage Layout
+
+### JD bucket (`REFERENCE_BUCKET`, example `jackytest007`)
+
+```text
+gs://jackytest007/generated-jds/
+  .index.json
+  jd-<id>.md
 ```
-jd-agent-gcp/
-├── src/
-│   ├── main.py                 # FastAPI app & all endpoints
-│   ├── chat_agent.py           # Conversational JD generation
-│   ├── jd_agent.py             # Structured API (backward compatible)
-│   ├── jd_store.py             # GCS persistence layer
-│   ├── reference_store.py      # Dynamic GCS document loading
-│   ├── template_store.py       # Template management
-│   ├── config.py               # Configuration from env vars
-│   ├── chat.html               # Interactive chat UI
-│   └── gallery.html            # Public gallery UI
-├── templates/
-│   └── globe_telecom_default.md  # JD format template
-├── scripts/
-│   └── deploy_cloud_run.sh     # Cloud Run deployment
-├── Dockerfile
-├── requirements.txt
-├── .env.example
-└── IMPLEMENTATION.md           # Architecture & deployment guides
+
+### Application bucket (`APPLICATION_BUCKET`, example `jackytest008`)
+
+```text
+gs://jackytest008/job-applications/<jd_id>/<yyyy-mm-dd>/<application_id>_<candidate_slug>/
+  application.json
+  <resume_file>
 ```
-
-## Prerequisites
-
-- **Google Cloud Project**: `demo0908` (or your own)
-- **GCS Bucket**: For storing generated JDs and reference documents
-- **gcloud CLI**: Installed and authenticated
-  ```bash
-  gcloud auth application-default login
-  ```
-- **Python 3.11+** with pip
-- **Vertex AI API** enabled in your GCP project
 
 ## Quick Start
-
-### 1. Clone and Setup
 
 ```bash
 cd jd-agent-gcp
@@ -77,257 +117,46 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Authenticate with Google Cloud
 gcloud auth application-default login
-```
 
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-# Edit .env with your settings:
-#   GOOGLE_CLOUD_PROJECT=demo0908
-#   GOOGLE_CLOUD_LOCATION=us-central1
-#   REFERENCE_BUCKET=jackytest007
-```
-
-Or set via environment:
-```bash
+export PYTHONPATH=$PWD:$PYTHONPATH
 export GOOGLE_CLOUD_PROJECT=demo0908
 export GOOGLE_CLOUD_LOCATION=us-central1
+export GOOGLE_GENAI_USE_VERTEXAI=true
 export MODEL_NAME=gemini-2.5-pro
+export TEMPLATE_DIR=templates
 export REFERENCE_BUCKET=jackytest007
+export APPLICATION_BUCKET=jackytest008
+export APPLICATION_PREFIX=job-applications
 export REFERENCE_ENABLED=true
-```
 
-### 3. Run Locally
-
-```bash
 uvicorn src.main:app --host 127.0.0.1 --port 8080
 ```
 
-Open browser:
-- **Chat**: http://127.0.0.1:8080/
-- **Gallery**: http://127.0.0.1:8080/gallery
+Open:
+- Chat: `http://127.0.0.1:8080/`
+- Gallery: `http://127.0.0.1:8080/gallery`
+- Recruiter: `http://127.0.0.1:8080/recruiter`
 
-## Usage
+## Deduplication Behavior
 
-### Via Chat UI
+On `POST /api/jds/{jd_id}/apply`, backend checks existing applications for that JD:
 
-1. Open http://127.0.0.1:8080/
-2. Type a prompt:
-   ```
-   Generate a JD for a Senior Data Engineer
-   ```
-3. View results in Markdown
-4. Continue conversation for refinement:
-   ```
-   Remove the educational requirements and add cloud certifications
-   ```
+1. Same resume fingerprint (SHA-256) -> duplicate
+2. Same applicant email -> duplicate
 
-### Via Gallery
+If duplicate is found, backend returns existing `application_id` with:
 
-1. Open http://127.0.0.1:8080/gallery
-2. Browse all generated JDs
-3. Click to view full details with Markdown rendering
-
-### Via REST API
-
-**List all JDs:**
-```bash
-curl http://127.0.0.1:8080/api/jds | python -m json.tool
-```
-
-Response:
 ```json
-[
-  {
-    "jd_id": "c888c0e6",
-    "role_title": "Database Administrator",
-    "business_unit": "Globe Telecom",
-    "location": "Manila, Philippines",
-    "created_at": "2026-03-16T16:37:06.003588",
-    "tags": ["generated", "chat"]
-  }
-]
+{
+  "application_id": "existing-id",
+  "message": "Duplicate application detected. Existing submission reused.",
+  "is_duplicate": true
+}
 ```
 
-**Get specific JD:**
-```bash
-curl http://127.0.0.1:8080/api/jds/c888c0e6 | python -m json.tool
-```
+## Demo Notes
 
-**Generate via API:**
-```bash
-curl -X POST http://127.0.0.1:8080/chat \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "Write a Cloud Architect JD for Manila",
-    "history": []
-  }'
-```
-
-## Storage Architecture
-
-Generated JDs are stored in Google Cloud Storage:
-
-```
-gs://YOUR_BUCKET/generated-jds/
-├── .index.json           # Metadata index (auto-maintained)
-├── jd-c888c0e6.md        # Individual JD files (Markdown)
-├── jd-ef658af6.md
-└── ...
-```
-
-- **Automatic indexing**: Metadata is updated whenever a JD is created
-- **Fast retrieval**: Index enables quick listing and search
-- **Resilient**: Falls back to gcloud CLI if SDK unavailable
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GOOGLE_CLOUD_PROJECT` | `demo0908` | GCP project ID |
-| `GOOGLE_CLOUD_LOCATION` | `us-central1` | Vertex AI region |
-| `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Use Vertex AI (vs public API) |
-| `MODEL_NAME` | `gemini-2.5-pro` | Gemini model to use |
-| `TEMPLATE_DIR` | `templates` | Path to JD templates |
-| `REFERENCE_BUCKET` | `jackytest007` | GCS bucket for reference docs |
-| `REFERENCE_PREFIX` | `` | Prefix filter in GCS |
-| `REFERENCE_ENABLED` | `true` | Enable reference document loading |
-| `REFERENCE_MAX_FILES` | `20` | Max reference files to load |
-| `REFERENCE_MAX_CHARS_PER_FILE` | `6000` | Truncate files to this length |
-
-## Deployment
-
-### Cloud Run (Recommended)
-
-```bash
-# Update scripts/deploy_cloud_run.sh with your project/bucket
-chmod +x scripts/deploy_cloud_run.sh
-./scripts/deploy_cloud_run.sh
-```
-
-Required permissions for service account:
-- `Vertex AI User` (for Gemini API)
-- `Storage Object Viewer` (for reference documents)
-- `Storage Object Creator` (for saving JDs)
-
-### Kubernetes
-
-See `IMPLEMENTATION.md` for Kubernetes YAML manifests.
-
-### Linux VM
-
-See `IMPLEMENTATION.md` for systemd service configuration.
-
-## Architecture
-
-```
-┌──────────────┐
-│ User Browser │
-└──────┬───────┘
-       │
-       │ HTTP (REST / WebSocket)
-       ▼
-┌──────────────────────────────┐
-│  FastAPI Application         │
-│                              │
-│  ┌────────────────────────┐  │
-│  │ /chat   (UI + API)     │  │  ┌─────────────────┐
-│  │ /gallery               │  ├─▶│  Vertex AI      │
-│  │ /api/jds               │  │  │  Gemini API     │
-│  │ /api/jds/{id}          │  │  └─────────────────┘
-│  └────────────────────────┘  │
-│           │                  │
-│  ┌────────▼────────────────┐ │
-│  │ ChatAgent               │ │
-│  │ JDAgent                 │ │
-│  │ ReferenceStore          │ │
-│  │ TemplateStore           │ │
-│  │ JDStore                 │ │
-│  └────────┬────────────────┘ │
-└───────────┼──────────────────┘
-            │
-            │ gRPC / HTTP
-            ▼
-    ┌──────────────────────┐
-    │ Google Cloud Storage │
-    │                      │
-    │ • Generated JDs      │
-    │ • Reference docs     │
-    │ • Metadata index     │
-    └──────────────────────┘
-```
-
-## Testing
-
-Quick test of all functionality:
-
-```bash
-./test_gallery.sh
-```
-
-Or individual tests:
-
-```bash
-# Health check
-curl http://127.0.0.1:8080/health
-
-# List JDs
-curl http://127.0.0.1:8080/api/jds
-
-# Generate and store
-curl -X POST http://127.0.0.1:8080/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"message": "JD for Senior Software Engineer", "history": []}'
-```
-
-## Troubleshooting
-
-### Module not found errors
-```bash
-# Set PYTHONPATH if running from wrong directory
-export PYTHONPATH=/path/to/jd-agent-gcp:$PYTHONPATH
-```
-
-### GCS authentication failures
-```bash
-# Re-authenticate with Application Default Credentials
-gcloud auth application-default login
-```
-
-### Model not found
-```bash
-# Verify model availability in your region
-gcloud compute machine-types describe standard-1 --zone=us-central1-a
-# Supported models: gemini-2.5-pro (us-central1), gemini-2.0-pro
-```
-
-See `IMPLEMENTATION.md` for comprehensive troubleshooting guide.
-
-## Next Steps
-
-- Add authentication (OAuth2 / API keys)
-- Implement audit logging (Cloud Logging)
-- Add role-based access control (RBAC)
-- Support for Gemini Enterprise with custom endpoints
-- Database persistence for audit trail
-- Advanced search and filtering in gallery
-- Batch JD generation from CSV
-
-## Documentation
-
-- **[IMPLEMENTATION.md](IMPLEMENTATION.md)** - Full architecture, deployment guides, API reference, troubleshooting
-- **[.env.example](.env.example)** - Configuration template
-- **[Dockerfile](Dockerfile)** - Container image definition
-
-## License
-
-This project is part of Globe Telecom's HR automation initiative.
-
----
-
-**Built with ❤️ on Google Cloud**  
-Vertex AI Gemini | FastAPI | Google Cloud Storage | Python
-
+- UI is English-only for international demo audiences.
+- This is intentionally cloud-native: Gemini + GCS are first-class runtime dependencies.
+- Candidate ranking is heuristic and explainable; it is not a final hiring decision system.
