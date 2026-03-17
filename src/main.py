@@ -160,6 +160,72 @@ def _extract_years(text: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _clean_display_text(value: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", value or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _is_low_quality_summary(summary: str) -> bool:
+    normalized = _clean_display_text(summary).lower()
+    if not normalized or len(normalized) < 45:
+        return True
+    noise_tokens = ["location:", "phone:", "email:"]
+    return any(token in normalized for token in noise_tokens)
+
+
+def _resolve_application_profile(record) -> tuple[str, str, str, str, str, list[str]]:
+    name = _clean_display_text(record.applicant_name)
+    email = _clean_display_text(record.applicant_email)
+    phone = _clean_display_text(record.applicant_phone)
+    title = _clean_display_text(record.current_title)
+    years = _clean_display_text(record.years_experience)
+    skills = list(record.skills or [])
+    summary = _clean_display_text(record.profile_summary)
+
+    needs_backfill = (
+        not title
+        or not years
+        or not skills
+        or _is_low_quality_summary(summary)
+        or not email
+        or name.lower() in {"candidate", "test candidate"}
+    )
+
+    if not needs_backfill:
+        return name, email, phone, title, years, skills, summary
+
+    payload = application_store.get_resume_bytes(record.jd_id, record.application_id)
+    if payload is None:
+        return name, email, phone, title, years, skills, summary
+
+    resume_bytes, _, filename = payload
+    insights = resume_parser.parse(filename, resume_bytes)
+
+    resolved_name = name
+    if not resolved_name or resolved_name.lower() in {"candidate", "test candidate"}:
+        resolved_name = insights.applicant_name or resolved_name
+
+    resolved_email = email or insights.applicant_email
+    resolved_phone = phone or insights.applicant_phone
+    resolved_title = title or insights.current_title
+    resolved_years = years or insights.years_experience
+    resolved_skills = skills or insights.skills
+    resolved_summary = summary
+    if _is_low_quality_summary(summary):
+        resolved_summary = _clean_display_text(insights.profile_summary)
+
+    return (
+        resolved_name,
+        resolved_email,
+        resolved_phone,
+        resolved_title,
+        resolved_years,
+        resolved_skills,
+        resolved_summary,
+    )
+
+
 def _calculate_match(
     jd_content: str,
     role_title: str,
@@ -478,28 +544,38 @@ def list_applications_for_jd(jd_id: str) -> list[ApplicationListItem]:
     role_title = metadata.role_title
     enriched = []
     for record in records:
+        (
+            applicant_name,
+            applicant_email,
+            applicant_phone,
+            current_title,
+            years_experience,
+            skills,
+            profile_summary,
+        ) = _resolve_application_profile(record)
+
         match_score, matched_skills, strengths_summary = _calculate_match(
             jd_content=jd_content,
             role_title=role_title,
-            current_title=record.current_title,
-            years_experience=record.years_experience,
-            skills=record.skills,
-            profile_summary=record.profile_summary,
+            current_title=current_title,
+            years_experience=years_experience,
+            skills=skills,
+            profile_summary=profile_summary,
         )
         enriched.append(
             ApplicationListItem(
                 application_id=record.application_id,
                 jd_id=record.jd_id,
-                applicant_name=record.applicant_name,
-                applicant_email=record.applicant_email,
-                applicant_phone=record.applicant_phone,
+                applicant_name=applicant_name,
+                applicant_email=applicant_email,
+                applicant_phone=applicant_phone,
                 match_score=match_score,
                 matched_skills=matched_skills,
                 strengths_summary=strengths_summary,
-                current_title=record.current_title,
-                years_experience=record.years_experience,
-                skills=record.skills,
-                profile_summary=record.profile_summary,
+                current_title=current_title,
+                years_experience=years_experience,
+                skills=skills,
+                profile_summary=profile_summary,
                 resume_filename=record.resume_filename,
                 resume_content_type=record.resume_content_type,
                 uploaded_at=record.uploaded_at,
@@ -519,6 +595,16 @@ def list_all_applications() -> list[ApplicationListItem]:
 
     items: list[ApplicationListItem] = []
     for record in records:
+        (
+            applicant_name,
+            applicant_email,
+            applicant_phone,
+            current_title,
+            years_experience,
+            skills,
+            profile_summary,
+        ) = _resolve_application_profile(record)
+
         jd_content = jd_content_cache.get(record.jd_id)
         if jd_content is None:
             jd_content = jd_store.get_jd(record.jd_id) or ""
@@ -528,25 +614,25 @@ def list_all_applications() -> list[ApplicationListItem]:
         match_score, matched_skills, strengths_summary = _calculate_match(
             jd_content=jd_content,
             role_title=role_title,
-            current_title=record.current_title,
-            years_experience=record.years_experience,
-            skills=record.skills,
-            profile_summary=record.profile_summary,
+            current_title=current_title,
+            years_experience=years_experience,
+            skills=skills,
+            profile_summary=profile_summary,
         )
         items.append(
             ApplicationListItem(
                 application_id=record.application_id,
                 jd_id=record.jd_id,
-                applicant_name=record.applicant_name,
-                applicant_email=record.applicant_email,
-                applicant_phone=record.applicant_phone,
+                applicant_name=applicant_name,
+                applicant_email=applicant_email,
+                applicant_phone=applicant_phone,
                 match_score=match_score,
                 matched_skills=matched_skills,
                 strengths_summary=strengths_summary,
-                current_title=record.current_title,
-                years_experience=record.years_experience,
-                skills=record.skills,
-                profile_summary=record.profile_summary,
+                current_title=current_title,
+                years_experience=years_experience,
+                skills=skills,
+                profile_summary=profile_summary,
                 resume_filename=record.resume_filename,
                 resume_content_type=record.resume_content_type,
                 uploaded_at=record.uploaded_at,

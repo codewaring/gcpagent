@@ -68,6 +68,18 @@ class ResumeParser:
         "references",
         "contact",
     }
+    _TITLE_HINTS = (
+        "manager",
+        "lead",
+        "director",
+        "engineer",
+        "specialist",
+        "analyst",
+        "supervisor",
+        "consultant",
+        "coordinator",
+        "officer",
+    )
 
     def parse(self, filename: str, payload: bytes) -> ResumeInsights:
         try:
@@ -170,6 +182,13 @@ class ResumeParser:
             if "@" in line or re.search(r"\d{4}", line):
                 continue
             if 2 <= len(line.split()) <= 8 and len(line) <= 80:
+                return line
+
+        for line in lines[:30]:
+            lowered = line.lower()
+            if "@" in line or "phone" in lowered or "location" in lowered:
+                continue
+            if any(hint in lowered for hint in self._TITLE_HINTS) and 2 <= len(line.split()) <= 10 and len(line) <= 90:
                 return line
         return ""
 
