@@ -1,6 +1,7 @@
 substitutions:
   _SERVICE_NAME: jd-agent-gcp
   _REGION: asia-southeast1
+  _MODEL_REGION: us-central1
 
 steps:
   - name: gcr.io/cloud-builders/docker
@@ -27,7 +28,7 @@ steps:
       - --platform=managed
       - --allow-unauthenticated
       - --port=8080
-      - --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_REGION},GOOGLE_GENAI_USE_VERTEXAI=true,MODEL_NAME=gemini-2.5-pro,TEMPLATE_DIR=templates,REFERENCE_BUCKET=jackytest007,APPLICATION_BUCKET=jackytest008,APPLICATION_PREFIX=job-applications,REFERENCE_PREFIX=,REFERENCE_ENABLED=true
+      - --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_MODEL_REGION},GOOGLE_GENAI_USE_VERTEXAI=true,MODEL_NAME=gemini-2.5-pro,TEMPLATE_DIR=templates,REFERENCE_BUCKET=jackytest007,APPLICATION_BUCKET=jackytest008,APPLICATION_PREFIX=job-applications,REFERENCE_PREFIX=,REFERENCE_ENABLED=true
 
 images:
   - gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$SHORT_SHA
