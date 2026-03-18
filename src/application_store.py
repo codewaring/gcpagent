@@ -185,10 +185,13 @@ class ApplicationStore:
 
     def _upload_bytes(self, blob_path: str, payload: bytes, content_type: str) -> None:
         if self.storage_client:
-            bucket = self.storage_client.bucket(self.bucket_name)
-            blob = bucket.blob(blob_path)
-            blob.upload_from_string(payload, content_type=content_type)
-            return
+            try:
+                bucket = self.storage_client.bucket(self.bucket_name)
+                blob = bucket.blob(blob_path)
+                blob.upload_from_string(payload, content_type=content_type)
+                return
+            except Exception as exc:
+                print(f"Warning: GCS SDK upload failed, falling back to gcloud CLI: {exc}")
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(payload)
@@ -214,11 +217,14 @@ class ApplicationStore:
 
     def _download_bytes(self, blob_path: str) -> bytes | None:
         if self.storage_client:
-            bucket = self.storage_client.bucket(self.bucket_name)
-            blob = bucket.blob(blob_path)
-            if not blob.exists():
-                return None
-            return blob.download_as_bytes()
+            try:
+                bucket = self.storage_client.bucket(self.bucket_name)
+                blob = bucket.blob(blob_path)
+                if not blob.exists():
+                    return None
+                return blob.download_as_bytes()
+            except Exception as exc:
+                print(f"Warning: GCS SDK download failed, falling back to gcloud CLI: {exc}")
 
         gcs_path = f"gs://{self.bucket_name}/{blob_path}"
         result = subprocess.run(
@@ -232,8 +238,11 @@ class ApplicationStore:
 
     def _list_metadata_paths(self, prefix: str) -> list[str]:
         if self.storage_client:
-            iterator = self.storage_client.list_blobs(self.bucket_name, prefix=prefix)
-            return sorted(blob.name for blob in iterator if blob.name.endswith("application.json"))
+            try:
+                iterator = self.storage_client.list_blobs(self.bucket_name, prefix=prefix)
+                return sorted(blob.name for blob in iterator if blob.name.endswith("application.json"))
+            except Exception as exc:
+                print(f"Warning: GCS SDK list failed, falling back to gcloud CLI: {exc}")
 
         gcs_path = f"gs://{self.bucket_name}/{prefix}/**"
         result = subprocess.run(
